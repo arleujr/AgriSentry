@@ -12,7 +12,7 @@ import { listEnvironmentsController } from '../modules/environments/useCases/lis
 import { getEnvironmentDetailsController } from '../modules/environments/useCases/getEnvironmentDetails/GetEnvironmentDetailsController';
 import { deleteEnvironmentController } from '../modules/environments/useCases/deleteEnvironment/DeleteEnvironmentController';
 import { getEnvironmentStatsController } from '../modules/environments/useCases/getEnvironmentStats/GetEnvironmentStatsController';
-import { getDashboardDataController } from '../modules/environments/useCases/getDashboardData/GetDashboardDataController';
+import { getDashboardDataController } from '../modules/environments/useCases/GetDashboardData/GetDashboardDataController';
 
 // Sensors
 import { registerSensorController } from '../modules/sensors/useCases/registerSensor/RegisterSensorController';
@@ -43,6 +43,9 @@ import { deleteRuleController } from '../modules/rules/useCases/deleteRule/Delet
 import { listActuatorLogsController } from '../modules/actuator-logs/useCases/listActuatorLogs/ListActuatorLogsController';
 
 const router = Router();
+router.get('/', (request, response) => {
+  return response.json({ message: 'AgriSentry API is running!' });
+});
 
 // =================================
 // --- Rotas Públicas ---
