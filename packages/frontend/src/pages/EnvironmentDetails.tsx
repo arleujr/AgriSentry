@@ -131,7 +131,7 @@ export function EnvironmentDetailsPage() {
   return (
     <div className="bg-gray-900 text-white min-h-screen p-8 space-y-8">
       <div>
-        <Link to="/dashboard" className="text-green-400 hover:text-green-300 mb-4 block">&larr; Voltar para o Dashboard</Link>
+        <Link to="/dashboard" className="text-green-400 hover:text-green-300 mb-4 block">&larr; Voltar para o Painel de Monitoramento</Link>
         <h1 className="text-3xl font-bold">{environment?.name || 'Carregando nome...'}</h1>
         <p className="text-gray-400">{environment?.description || 'Sem descrição.'}</p>
       </div>
