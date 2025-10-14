@@ -9,7 +9,7 @@ import { Modal } from '../components/shared/Modal';
 import { AddSensorForm } from '../components/sensors/AddSensorForm';
 import { AddActuatorForm } from '../components/actuators/AddActuatorForm';
 import { StatsCard } from '../components/stats/StatsCard';
-import { Thermometer, Leaf, Droplets } from 'lucide-react'; 
+import { Thermometer, Leaf, Droplets } from 'lucide-react';
 
 // --- Interfaces ---
 interface Environment {
@@ -34,6 +34,7 @@ interface Reading {
   id: string;
   value: number;
   sensor_id: string;
+  created_at: string;
 }
 interface Rule {
   id: string;
@@ -45,9 +46,9 @@ interface Rule {
   action_actuator: { name: string };
 }
 interface StatsData {
-  temperature: { _avg: number | null; _max: number | null; _min: number | null; };
-  humidity: { _avg: number | null; _max: number | null; _min: number | null; };
-  soil_moisture: { _avg: number | null; _max: number | null; _min: number | null; };
+  temperature: { _avg: number | null; _max: number | null; _min: number | null };
+  humidity: { _avg: number | null; _max: number | null; _min: number | null };
+  soil_moisture: { _avg: number | null; _max: number | null; _min: number | null };
 }
 // --------------------
 
@@ -66,6 +67,7 @@ export function EnvironmentDetailsPage() {
   async function loadData() {
     try {
       if (!environmentId) return;
+
       const [envRes, sensorsRes, actuatorsRes, rulesRes, statsRes] = await Promise.all([
         api.get(`/environments/${environmentId}`),
         api.get(`/environments/${environmentId}/sensors`),
@@ -73,15 +75,33 @@ export function EnvironmentDetailsPage() {
         api.get(`/environments/${environmentId}/rules`),
         api.get(`/environments/${environmentId}/stats`),
       ]);
-      
+
+      const fetchedSensors: Sensor[] = sensorsRes.data;
+
       setEnvironment(envRes.data);
-      setSensors(sensorsRes.data);
+      setSensors(fetchedSensors);
       setActuators(actuatorsRes.data);
       setRules(rulesRes.data);
       setStats(statsRes.data);
+
+      if (fetchedSensors.length > 0) {
+        const latestReadingsPromises = fetchedSensors.map(sensor =>
+          api.get(`/sensors/${sensor.id}/latest-reading`).catch(() => null)
+        );
+        const latestReadingsResponses = await Promise.all(latestReadingsPromises);
+
+        const initialReadings: Record<string, Reading> = {};
+        latestReadingsResponses.forEach(response => {
+          if (response?.data) {
+            const reading = response.data;
+            initialReadings[reading.sensor_id] = reading;
+          }
+        });
+        setReadings(initialReadings);
+      }
     } catch (error) {
-      console.error("Erro ao buscar dados:", error);
-      alert("Não foi possível carregar os dados.");
+      console.error('Erro ao buscar dados:', error);
+      alert('Não foi possível carregar os dados.');
     }
   }
 
@@ -92,12 +112,25 @@ export function EnvironmentDetailsPage() {
 
   useEffect(() => {
     const socket = io('http://localhost:3333');
+
     socket.on('new_reading', (newReading: Reading) => {
-      setReadings(prev => ({ ...prev, [newReading.sensor_id]: newReading }));
+      console.log('📡 Nova leitura recebida no WebSocket!', newReading);
+      setReadings(prevReadings => {
+        const newReadings = { ...prevReadings };
+        newReadings[newReading.sensor_id] = newReading;
+        return newReadings;
+      });
     });
+
     socket.on('actuator_toggled', (updatedActuator: Actuator) => {
-      setActuators(prev => prev.map(actuator => actuator.id === updatedActuator.id ? updatedActuator : actuator));
+      console.log('🔁 Estado do atuador atualizado via automação!', updatedActuator);
+      setActuators(prevActuators =>
+        prevActuators.map(actuator =>
+          actuator.id === updatedActuator.id ? updatedActuator : actuator
+        )
+      );
     });
+
     return () => {
       socket.disconnect();
     };
@@ -125,13 +158,19 @@ export function EnvironmentDetailsPage() {
   }
 
   if (isLoading) {
-    return <div className="bg-gray-900 text-white min-h-screen flex items-center justify-center"><p>Carregando...</p></div>;
+    return (
+      <div className="bg-gray-900 text-white min-h-screen flex items-center justify-center">
+        <p>Carregando...</p>
+      </div>
+    );
   }
 
   return (
     <div className="bg-gray-900 text-white min-h-screen p-8 space-y-8">
       <div>
-        <Link to="/dashboard" className="text-green-400 hover:text-green-300 mb-4 block">&larr; Voltar para o Painel de Monitoramento</Link>
+        <Link to="/dashboard" className="text-green-400 hover:text-green-300 mb-4 block">
+          &larr; Voltar para o Painel de Monitoramento
+        </Link>
         <h1 className="text-3xl font-bold">{environment?.name || 'Carregando nome...'}</h1>
         <p className="text-gray-400">{environment?.description || 'Sem descrição.'}</p>
       </div>
@@ -148,15 +187,29 @@ export function EnvironmentDetailsPage() {
           <p className="text-gray-500">A carregar estatísticas...</p>
         )}
       </div>
-      
+
       <div>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-semibold">Sensores</h2>
-          <button onClick={() => setIsAddSensorModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">+ Adicionar Sensor</button>
+          <button
+            onClick={() => setIsAddSensorModalOpen(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+          >
+            + Adicionar Sensor
+          </button>
         </div>
-        {sensors.length === 0 ? <p className="text-gray-500">Nenhum sensor cadastrado.</p> : (
+        {sensors.length === 0 ? (
+          <p className="text-gray-500">Nenhum sensor cadastrado.</p>
+        ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {sensors.map(sensor => <SensorCard key={sensor.id} sensor={sensor} latestReading={readings[sensor.id] || null} onDelete={handleDeleteSensor} />)}
+            {sensors.map(sensor => (
+              <SensorCard
+                key={`${sensor.id}-${readings[sensor.id]?.value ?? 'no-data'}`}
+                sensor={sensor}
+                latestReading={readings[sensor.id] || null}
+                onDelete={handleDeleteSensor}
+              />
+            ))}
           </div>
         )}
       </div>
@@ -164,7 +217,12 @@ export function EnvironmentDetailsPage() {
       <div>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-semibold">Atuadores</h2>
-          <button onClick={() => setIsAddActuatorModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">+ Adicionar Atuador</button>
+          <button
+            onClick={() => setIsAddActuatorModalOpen(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+          >
+            + Adicionar Atuador
+          </button>
         </div>
         {actuators.length === 0 ? <p className="text-gray-500">Nenhum atuador cadastrado.</p> : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

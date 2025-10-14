@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Thermometer, Droplets, Leaf, Sun, Trash2 } from 'lucide-react';
 
@@ -30,6 +31,13 @@ export function SensorCard({ sensor, latestReading, onDelete }: SensorCardProps)
   const visual = sensorVisuals[sensor.type as keyof typeof sensorVisuals] || sensorVisuals.DEFAULT;
   const Icon = visual.icon;
 
+  // ✅ Estado interno que reage à leitura nova
+  const [readingValue, setReadingValue] = useState<number | null>(latestReading?.value ?? null);
+
+  useEffect(() => {
+    setReadingValue(latestReading?.value ?? null);
+  }, [latestReading?.value]);
+
   function handleDeleteClick(event: React.MouseEvent) {
     event.preventDefault();
     event.stopPropagation();
@@ -39,13 +47,13 @@ export function SensorCard({ sensor, latestReading, onDelete }: SensorCardProps)
   }
 
   const formattedValue = () => {
-    if (latestReading === null) return '--';
+    if (readingValue === null) return '--';
     switch (sensor.type) {
-      case 'TEMPERATURE': return `${latestReading.value.toFixed(1)} °C`;
+      case 'TEMPERATURE': return `${readingValue.toFixed(1)} °C`;
       case 'HUMIDITY':
-      case 'SOIL_MOISTURE': return `${latestReading.value.toFixed(0)} %`;
-      case 'LUMINOSITY': return `${latestReading.value.toFixed(0)} lux`;
-      default: return latestReading.value;
+      case 'SOIL_MOISTURE': return `${readingValue.toFixed(0)} %`;
+      case 'LUMINOSITY': return `${readingValue.toFixed(0)} lux`;
+      default: return readingValue;
     }
   };
 
@@ -71,7 +79,9 @@ export function SensorCard({ sensor, latestReading, onDelete }: SensorCardProps)
               <div className={`w-2 h-2 ${statusVisuals.color} rounded-full ${statusVisuals.pulse}`}></div>
               <span className="text-xs text-gray-400">{statusVisuals.text}</span>
             </div>
-            <button onClick={handleDeleteClick} className="text-gray-500 hover:text-red-500"><Trash2 size={18} /></button>
+            <button onClick={handleDeleteClick} className="text-gray-500 hover:text-red-500">
+              <Trash2 size={18} />
+            </button>
           </div>
         </div>
         <p className={`text-sm ${visual.color}`}>{sensor.type}</p>
