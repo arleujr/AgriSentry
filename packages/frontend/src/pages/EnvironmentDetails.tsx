@@ -111,7 +111,8 @@ export function EnvironmentDetailsPage() {
   }, [environmentId]);
 
   useEffect(() => {
-    const socket = io('http://localhost:3333');
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3333';
+    const socket = io(apiUrl);
 
     socket.on('new_reading', (newReading: Reading) => {
       console.log('📡 Nova leitura recebida no WebSocket!', newReading);
