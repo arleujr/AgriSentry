@@ -5,6 +5,7 @@ import { io } from '../../../../server';
 import { IRulesRepository } from '../../../rules/repositories/IRulesRepository';
 import { IActuatorsRepository } from '../../../actuators/repositories/IActuatorsRepository';
 import { IActuatorLogsRepository } from '../../../actuator-logs/repositories/IActuatorLogsRepository';
+
 interface IRequest {
   value: number;
   sensor_id: string;
@@ -17,7 +18,7 @@ export class CreateReadingService {
     private sensorsRepository: ISensorsRepository,
     private rulesRepository: IRulesRepository,
     private actuatorsRepository: IActuatorsRepository,
-    private actuatorLogsRepository: IActuatorLogsRepository 
+    private actuatorLogsRepository: IActuatorLogsRepository,
   ) {}
 
   public async execute({ value, sensor_id, environment_id }: IRequest): Promise<SensorReading> {
@@ -36,33 +37,43 @@ export class CreateReadingService {
     const rules = await this.rulesRepository.findByTriggerSensorId(sensor_id);
 
     for (const rule of rules) {
-      let shouldTakeAction = false;
+      const actuator = await this.actuatorsRepository.findById(rule.action_actuator_id);
 
-      if (rule.trigger_condition === 'GREATER_THAN' && value > rule.trigger_value) {
-        shouldTakeAction = true;
-      } else if (rule.trigger_condition === 'LESS_THAN' && value < rule.trigger_value) {
-        shouldTakeAction = true;
+      if (!actuator || actuator.control_mode !== 'AUTOMATIC') {
+        continue; 
+      }
+      
+      let conditionMet = false;
+
+      if (!actuator.is_on && rule.action_type === 'TURN_ON') {
+        if (rule.trigger_condition === 'GREATER_THAN' && value > rule.trigger_value) {
+          conditionMet = true;
+        } else if (rule.trigger_condition === 'LESS_THAN' && value < rule.trigger_value) {
+          conditionMet = true;
+        }
+      } 
+      else if (actuator.is_on && rule.action_type === 'TURN_OFF') {
+        if (rule.trigger_condition === 'GREATER_THAN' && value > rule.trigger_value) {
+          conditionMet = true;
+        } else if (rule.trigger_condition === 'LESS_THAN' && value < rule.trigger_value) {
+          conditionMet = true;
+        }
       }
 
-      if (shouldTakeAction) {
-        const actuator = await this.actuatorsRepository.findById(rule.action_actuator_id);
+      if (conditionMet) {
+        actuator.is_on = !actuator.is_on;
+        const updatedActuator = await this.actuatorsRepository.save(actuator);
+        
+        await this.actuatorLogsRepository.create({
+          actuator_id: updatedActuator.id,
+          action: updatedActuator.is_on ? 'TURNED_ON' : 'TURNED_OFF',
+          triggered_by: 'AUTOMATIC',
+        });
 
-        if (actuator && actuator.control_mode === 'AUTOMATIC') {
-          const newState = rule.action_type === 'TURN_ON';
-          if (actuator.is_on !== newState) {
-            actuator.is_on = newState;
-            const updatedActuator = await this.actuatorsRepository.save(actuator);
-
-            await this.actuatorLogsRepository.create({
-              actuator_id: updatedActuator.id,
-              action: updatedActuator.is_on ? 'TURNED_ON' : 'TURNED_OFF',
-              triggered_by: 'AUTOMATIC',
-            });
-
-            io.emit('actuator_toggled', updatedActuator);
-            console.log(`REGRA '${rule.name}' DISPARADA: Atuador '${actuator.name}' foi ${newState ? 'LIGADO' : 'DESLIGADO'}.`);
-          }
-        }
+        io.emit('actuator_toggled', updatedActuator);
+        console.log(`REGRA '${rule.name}' DISPARADA: Atuador '${actuator.name}' foi ${actuator.is_on ? 'LIGADO' : 'DESLIGADO'}.`);
+        
+        break; 
       }
     }
 
