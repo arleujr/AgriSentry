@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  //shadowDatabaseUrl = env("DATABASE_URL") 
+}
+
+model User {
+  id            String   @id @default(uuid())
+  name          String
+  email         String   @unique
+  password_hash String
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  environments Environment[]
+
+  @@map("users")
+}
+
+model Environment {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  apiKey      String   @unique @default(uuid())
+
+  user_id String
+  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  sensors   Sensor[]
+  actuators Actuator[]
+  rules     Rule[]
+
+  @@map("environments")
+}
+
+enum SensorType {
+  TEMPERATURE
+  HUMIDITY
+  SOIL_MOISTURE
+  LUMINOSITY
+}
+
+model Sensor {
+  id             String        @id @default(uuid())
+  name           String
+  type           SensorType
+  created_at     DateTime      @default(now())
+  updated_at     DateTime      @updatedAt
+
+  environment_id String
+  environment    Environment   @relation(fields: [environment_id], references: [id], onDelete: Cascade)
+
+  readings       SensorReading[]
+  rules          Rule[]
+
+  @@map("sensors")
+}
+
+enum ActuatorType {
+  WATER_PUMP
+  FAN
+  LIGHT
+}
+
+enum ActuatorControlMode {
+  MANUAL
+  AUTOMATIC
+}
+
+model Actuator {
+  id           String              @id @default(uuid())
+  name         String
+  type         ActuatorType
+  is_on        Boolean             @default(false)
+  control_mode ActuatorControlMode @default(MANUAL)
+  created_at   DateTime            @default(now())
+  updated_at   DateTime            @updatedAt
+
+  environment_id String
+  environment    Environment         @relation(fields: [environment_id], references: [id], onDelete: Cascade)
+
+  rules          Rule[]
+  logs           ActuatorLog[]      
+
+  @@map("actuators")
+}
+
+model ActuatorLog {
+  id           String   @id @default(uuid())
+  action       String   // "TURNED_ON" ou "TURNED_OFF"
+  triggered_by String   // "MANUAL" ou "AUTOMATIC"
+  created_at   DateTime @default(now())
+
+  actuator_id  String
+  actuator     Actuator @relation(fields: [actuator_id], references: [id], onDelete: Cascade)
+
+  @@map("actuator_logs")
+}
+
+model SensorReading {
+  id         String   @id @default(uuid())
+  value      Float
+  created_at DateTime @default(now())
+
+  sensor_id String
+  sensor    Sensor   @relation(fields: [sensor_id], references: [id], onDelete: Cascade)
+
+  @@map("sensor_readings")
+}
+
+model Rule {
+  id                String   @id @default(uuid())
+  name              String
+  trigger_condition String
+  trigger_value     Float
+  action_type       String
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  trigger_sensor_id String
+  trigger_sensor    Sensor   @relation(fields: [trigger_sensor_id], references: [id], onDelete: Cascade)
+
+  action_actuator_id String
+  action_actuator    Actuator @relation(fields: [action_actuator_id], references: [id], onDelete: Cascade)
+
+  environment_id String
+  environment    Environment @relation(fields: [environment_id], references: [id], onDelete: Cascade)
+
+  @@map("rules")
+}
