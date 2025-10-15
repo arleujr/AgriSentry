@@ -181,8 +181,8 @@ export function EnvironmentDetailsPage() {
         {stats ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <StatsCard title="Temperatura" stats={stats.temperature} unit="°C" Icon={Thermometer} />
-            <StatsCard title="Humidade do Ar" stats={stats.humidity} unit="%" Icon={Droplets} />
-            <StatsCard title="Humidade do Solo" stats={stats.soil_moisture} unit="%" Icon={Leaf} />
+            <StatsCard title="Umidade do Ar" stats={stats.humidity} unit="%" Icon={Droplets} />
+            <StatsCard title="Umidade do Solo" stats={stats.soil_moisture} unit="%" Icon={Leaf} />
           </div>
         ) : (
           <p className="text-gray-500">A carregar estatísticas...</p>
@@ -234,10 +234,10 @@ export function EnvironmentDetailsPage() {
 
       <div>
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-semibold">Regras de Automação</h2>
-          <Link to={`/environments/${environmentId}/rules/new`} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">+ Nova Regra</Link>
+          <h2 className="text-2xl font-semibold">Automação de Manejo</h2>
+          <Link to={`/environments/${environmentId}/rules/new`} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">+ Nova Decisão</Link>
         </div>
-        {rules.length === 0 ? <p className="text-gray-500">Nenhuma regra cadastrada.</p> : (
+        {rules.length === 0 ? <p className="text-gray-500">Nenhuma decisão agronômica foi definida.</p> : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {rules.map(rule => <RuleCard key={rule.id} rule={rule} onDelete={handleDeleteRule} />)}
           </div>
